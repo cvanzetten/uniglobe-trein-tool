@@ -32,47 +32,52 @@
 <script>
 let laatsteData = null;
 
-// ✅ STABIELE EN ENIGE API ROUTE (geen complexe proxies)
-//const DB_BASE = "https://v5.db.transport.rest";
-const API_BASE = "/api";  
+const DB_BASE = "/api";
 
+// 🔧 FETCH helper
 async function fetchJSON(url) {
   const res = await fetch(url);
-  if (!res.ok) throw new Error('Network error');
+  if (!res.ok) throw new Error("Network error");
   return await res.json();
 }
 
+// 📍 Station zoeken
 async function zoekStation(naam) {
-  const data = await fetch(`/api/station?query=${encodeURIComponent(naam)}&results=1`);
-  const data = await res.json();
+  const data = await fetchJSON(
+    `${DB_BASE}/station?query=${encodeURIComponent(naam)}`
+  );
   return data && data[0];
 }
 
+// 🚆 Berekenen
 async function bereken() {
-  const fromInput = document.getElementById('from').value;
-  const toInput = document.getElementById('to').value;
+  const fromInput = document.getElementById("from").value;
+  const toInput = document.getElementById("to").value;
+
+  const resultEl = document.getElementById("result");
 
   if (!fromInput || !toInput) {
-    document.getElementById('result').innerText = 'Vul beide stations in.';
+    resultEl.innerText = "Vul beide stations in.";
     return;
   }
 
-  document.getElementById('result').innerText = 'Bezig met laden...';
+  resultEl.innerText = "Bezig met laden...";
 
   try {
     const from = await zoekStation(fromInput);
     const to = await zoekStation(toInput);
 
     if (!from || !to) {
-      document.getElementById('result').innerText = 'Station niet gevonden.';
+      resultEl.innerText = "Station niet gevonden.";
       return;
     }
 
-    const data = await fetch(`/api/journey?from=${from.id}&to=${to.id}&results=1`);
-    const data = await res.json();
+    const data = await fetchJSON(
+      `${DB_BASE}/journey?from=${from.id}&to=${to.id}`
+    );
 
     if (!data.journeys || data.journeys.length === 0) {
-      document.getElementById('result').innerText = 'Geen reis gevonden.';
+      resultEl.innerText = "Geen reis gevonden.";
       return;
     }
 
@@ -83,10 +88,9 @@ async function bereken() {
     const duur = Math.round((aankomst - vertrek) / 60000);
 
     let km = 0;
-    j.legs.forEach(leg => {
+    j.legs.forEach((leg) => {
       if (leg.distance) km += leg.distance;
     });
-
     km = Math.round(km / 1000);
 
     laatsteData = {
@@ -94,11 +98,11 @@ async function bereken() {
       naar: to.name,
       vertrek: vertrek.toLocaleString(),
       aankomst: aankomst.toLocaleString(),
-      duur: duur,
-      km: km
+      duur,
+      km
     };
 
-    document.getElementById('result').innerText =
+    resultEl.innerText =
 `Van: ${laatsteData.van}
 Naar: ${laatsteData.naar}
 
@@ -109,33 +113,32 @@ Aankomst: ${laatsteData.aankomst}`;
 
   } catch (e) {
     console.error(e);
-    document.getElementById('result').innerText =
-      '❌ API niet bereikbaar. Open dit bestand via internet of gebruik een live server (niet dubbelklikken).';
+    document.getElementById("result").innerText =
+      "❌ API fout. Check /api routes in Vercel deployment.";
   }
 }
 
+// 📄 Export CSV
 function exportExcel() {
   if (!laatsteData) {
-    alert('Eerst berekenen');
+    alert("Eerst berekenen");
     return;
   }
 
-  const csv = `Van,Naar,Afstand (km),Reistijd (min),Vertrek,Aankomst\n${laatsteData.van},${laatsteData.naar},${laatsteData.km},${laatsteData.duur},${laatsteData.vertrek},${laatsteData.aankomst}`;
+  const csv =
+`Van,Naar,Afstand (km),Reistijd (min),Vertrek,Aankomst
+${laatsteData.van},${laatsteData.naar},${laatsteData.km},${laatsteData.duur},${laatsteData.vertrek},${laatsteData.aankomst}`;
 
-  const blob = new Blob([csv], { type: 'text/csv' });
+  const blob = new Blob([csv], { type: "text/csv" });
   const url = window.URL.createObjectURL(blob);
 
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
-  a.download = 'treinberekening.csv';
+  a.download = "treinberekening.csv";
   a.click();
 }
+
+// 🔥 BELANGRIJK: GLOBAL FIX (lost jouw error op)
 window.bereken = bereken;
 window.exportExcel = exportExcel;
-// TEST:
-// Amsterdam Centraal → Frankfurt Hbf
-// Rotterdam Centraal → Paris Gare du Nord
-// Utrecht Centraal → Berlin Hbf
 </script>
-</body>
-</html>
