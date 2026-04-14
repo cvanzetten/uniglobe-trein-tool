@@ -43,7 +43,8 @@ async function fetchJSON(url) {
 }
 
 async function zoekStation(naam) {
-  const data = await fetchJSON(`${DB_BASE}/locations?query=${encodeURIComponent(naam)}&results=1`);
+  const data = await fetch(`/api/station?query=${encodeURIComponent(naam)}&results=1`);
+  const data = await res.json();
   return data && data[0];
 }
 
@@ -67,7 +68,8 @@ async function bereken() {
       return;
     }
 
-    const data = await fetchJSON(`${DB_BASE}/journeys?from=${from.id}&to=${to.id}&results=1`);
+    const data = await fetch(`/api/journey?from=${from.id}&to=${to.id}&results=1`);
+    const data = await res.json();
 
     if (!data.journeys || data.journeys.length === 0) {
       document.getElementById('result').innerText = 'Geen reis gevonden.';
