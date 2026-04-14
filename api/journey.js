@@ -3,7 +3,7 @@ export default async function handler(req, res) {
 
   try {
     const r = await fetch(
-      `/api/journey?from=${from}&to=${to}&results=1`
+      `https://v5.db.transport.rest/journeys?from=${from}&to=${to}&results=1`
     );
     const data = await r.json();
 
