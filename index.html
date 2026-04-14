@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Uniglobe Trein Tool</title>
+  <style>
+    body { font-family: Roboto, Arial, sans-serif; padding:20px; background:#f5f5f5; }
+    .container { background:white; padding:25px; border-radius:12px; max-width:520px; margin:auto; box-shadow:0 6px 16px rgba(0,0,0,0.1); border-top:6px solid #00A3E0; }
+    h2 { margin-top:0; color:#003A8F; }
+    input,button { width:100%; padding:10px; margin-top:10px; border-radius:6px; border:1px solid #ccc; }
+    button { background:#00A3E0; color:white; border:none; cursor:pointer; }
+    button:hover { background:#007bb5; }
+    .result { margin-top:15px; font-weight:bold; white-space:pre-line; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h2>Uniglobe Trein Calculator</h2>
+
+  <label>Vertrekstation:</label>
+  <input type="text" id="from" placeholder="Amsterdam Centraal">
+
+  <label>Bestemming:</label>
+  <input type="text" id="to" placeholder="Frankfurt Hbf">
+
+  <button onclick="bereken()">Bereken</button>
+  <button onclick="exportExcel()">Export naar Excel</button>
+
+  <div class="result" id="result"></div>
+</div>
+
+<script>
+let laatsteData = null;
+
+// ✅ STABIELE EN ENIGE API ROUTE (geen complexe proxies)
+const DB_BASE = "https://v5.db.transport.rest";
+
+async function fetchJSON(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Network error');
+  return await res.json();
+}
+
+async function zoekStation(naam) {
+  const data = await fetchJSON(`${DB_BASE}/locations?query=${encodeURIComponent(naam)}&results=1`);
+  return data && data[0];
+}
+
+async function bereken() {
+  const fromInput = document.getElementById('from').value;
+  const toInput = document.getElementById('to').value;
+
+  if (!fromInput || !toInput) {
+    document.getElementById('result').innerText = 'Vul beide stations in.';
+    return;
+  }
+
+  document.getElementById('result').innerText = 'Bezig met laden...';
+
+  try {
+    const from = await zoekStation(fromInput);
+    const to = await zoekStation(toInput);
+
+    if (!from || !to) {
+      document.getElementById('result').innerText = 'Station niet gevonden.';
+      return;
+    }
+
+    const data = await fetchJSON(`${DB_BASE}/journeys?from=${from.id}&to=${to.id}&results=1`);
+
+    if (!data.journeys || data.journeys.length === 0) {
+      document.getElementById('result').innerText = 'Geen reis gevonden.';
+      return;
+    }
+
+    const j = data.journeys[0];
+
+    const vertrek = new Date(j.legs[0].departure);
+    const aankomst = new Date(j.legs[j.legs.length - 1].arrival);
+    const duur = Math.round((aankomst - vertrek) / 60000);
+
+    let km = 0;
+    j.legs.forEach(leg => {
+      if (leg.distance) km += leg.distance;
+    });
+
+    km = Math.round(km / 1000);
+
+    laatsteData = {
+      van: from.name,
+      naar: to.name,
+      vertrek: vertrek.toLocaleString(),
+      aankomst: aankomst.toLocaleString(),
+      duur: duur,
+      km: km
+    };
+
+    document.getElementById('result').innerText =
+`Van: ${laatsteData.van}
+Naar: ${laatsteData.naar}
+
+Afstand: ${km} km
+Reistijd: ${duur} min
+Vertrek: ${laatsteData.vertrek}
+Aankomst: ${laatsteData.aankomst}`;
+
+  } catch (e) {
+    console.error(e);
+    document.getElementById('result').innerText =
+      '❌ API niet bereikbaar. Open dit bestand via internet of gebruik een live server (niet dubbelklikken).';
+  }
+}
+
+function exportExcel() {
+  if (!laatsteData) {
+    alert('Eerst berekenen');
+    return;
+  }
+
+  const csv = `Van,Naar,Afstand (km),Reistijd (min),Vertrek,Aankomst\n${laatsteData.van},${laatsteData.naar},${laatsteData.km},${laatsteData.duur},${laatsteData.vertrek},${laatsteData.aankomst}`;
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'treinberekening.csv';
+  a.click();
+}
+
+// TEST:
+// Amsterdam Centraal → Frankfurt Hbf
+// Rotterdam Centraal → Paris Gare du Nord
+// Utrecht Centraal → Berlin Hbf
+</script>
+</body>
+</html>
