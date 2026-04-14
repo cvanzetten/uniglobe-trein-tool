@@ -3,7 +3,7 @@ export default async function handler(req, res) {
 
   try {
     const r = await fetch(
-      `/api/station?query=amsterdam`
+      `https://v5.db.transport.rest/locations?query=${query}&results=1`
     );
     const data = await r.json();
 
